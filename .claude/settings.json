@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter devices:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/scripts/session-start.ps1"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -ExecutionPolicy Bypass -File .claude/scripts/check-inbox.ps1"
+          }
+        ]
+      }
+    ]
+  }
+}

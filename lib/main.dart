@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'l10n/app_localizations.dart';
+import 'providers/locale_provider.dart';
+import 'providers/route_provider.dart';
+import 'providers/theme_provider.dart';
 import 'theme/tokens.dart';
 import 'widgets/tab_bar.dart';
 import 'screens/onboarding_screen.dart';
@@ -18,22 +23,11 @@ import 'screens/discover_screen.dart';
 import 'screens/profile_screen.dart';
 
 void main() {
-  runApp(const TripmateApp());
+  runApp(const ProviderScope(child: TripmateApp()));
 }
 
-class TripmateApp extends StatefulWidget {
+class TripmateApp extends ConsumerWidget {
   const TripmateApp({super.key});
-
-  @override
-  State<TripmateApp> createState() => _TripmateAppState();
-}
-
-class _TripmateAppState extends State<TripmateApp> {
-  ThemeMode mode = ThemeMode.light;
-
-  void toggleTheme() => setState(() {
-        mode = mode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-      });
 
   ThemeData _theme(Brightness b) {
     final dark = b == Brightness.dark;
@@ -54,105 +48,38 @@ class _TripmateAppState extends State<TripmateApp> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    final locale = ref.watch(localeProvider);
     return MaterialApp(
       title: 'Tripmate',
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
       themeMode: mode,
-      home: AppShell(onToggleTheme: toggleTheme),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const AppShell(),
     );
   }
 }
 
-enum _Route {
-  onboarding,
-  trips,
-  tripOverview,
-  tripTimeline,
-  tripMap,
-  tripCalendar,
-  cityMap,
-  expenses,
-  addExpense,
-  settle,
-  discover,
-  profile,
-}
-
-class AppShell extends StatefulWidget {
-  final VoidCallback onToggleTheme;
-  const AppShell({super.key, required this.onToggleTheme});
+class AppShell extends ConsumerWidget {
+  const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
-}
-
-class _AppShellState extends State<AppShell> {
-  _Route route = _Route.onboarding;
-
-  TmTab _tabFor(_Route r) {
-    switch (r) {
-      case _Route.trips:
-      case _Route.tripOverview:
-      case _Route.tripTimeline:
-      case _Route.tripMap:
-      case _Route.tripCalendar:
-        return TmTab.trips;
-      case _Route.cityMap:
-        return TmTab.map;
-      case _Route.expenses:
-      case _Route.addExpense:
-      case _Route.settle:
-        return TmTab.expenses;
-      case _Route.discover:
-        return TmTab.discover;
-      case _Route.profile:
-        return TmTab.profile;
-      case _Route.onboarding:
-        return TmTab.trips;
-    }
-  }
-
-  void _onTab(TmTab tab) {
-    setState(() {
-      switch (tab) {
-        case TmTab.trips:
-          route = _Route.trips;
-          break;
-        case TmTab.map:
-          route = _Route.cityMap;
-          break;
-        case TmTab.expenses:
-          route = _Route.expenses;
-          break;
-        case TmTab.discover:
-          route = _Route.discover;
-          break;
-        case TmTab.profile:
-          route = _Route.profile;
-          break;
-      }
-    });
-  }
-
-  bool get _showTabBar =>
-      route != _Route.onboarding &&
-      route != _Route.addExpense &&
-      route != _Route.settle &&
-      route != _Route.tripMap &&
-      route != _Route.cityMap;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final route = ref.watch(routeProvider);
+    final controller = ref.read(routeProvider.notifier);
     final p = TmPalette.of(context);
     SystemChrome.setSystemUIOverlayStyle(
       SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: p.dark ? Brightness.light : Brightness.dark,
         systemNavigationBarColor: p.bg,
-        systemNavigationBarIconBrightness: p.dark ? Brightness.light : Brightness.dark,
+        systemNavigationBarIconBrightness:
+            p.dark ? Brightness.light : Brightness.dark,
       ),
     );
     return Scaffold(
@@ -160,113 +87,80 @@ class _AppShellState extends State<AppShell> {
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
           if (didPop) return;
-          if (_canGoBack()) _goBack();
+          if (controller.canGoBack) controller.goBack();
         },
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           switchInCurve: Curves.easeOutCubic,
           child: KeyedSubtree(
             key: ValueKey(route),
-            child: _renderRoute(),
+            child: _renderRoute(route, controller),
           ),
         ),
       ),
-      bottomNavigationBar:
-          _showTabBar ? TmTabBar(active: _tabFor(route), onChanged: _onTab) : null,
+      bottomNavigationBar: controller.showTabBar
+          ? TmTabBar(active: controller.tabFor(route), onChanged: controller.selectTab)
+          : null,
     );
   }
 
-  bool _canGoBack() {
-    return route == _Route.tripOverview ||
-        route == _Route.tripTimeline ||
-        route == _Route.tripMap ||
-        route == _Route.tripCalendar ||
-        route == _Route.addExpense ||
-        route == _Route.settle ||
-        route == _Route.cityMap;
-  }
-
-  void _goBack() {
-    setState(() {
-      switch (route) {
-        case _Route.tripOverview:
-          route = _Route.trips;
-          break;
-        case _Route.tripTimeline:
-        case _Route.tripMap:
-        case _Route.tripCalendar:
-          route = _Route.tripOverview;
-          break;
-        case _Route.addExpense:
-        case _Route.settle:
-          route = _Route.expenses;
-          break;
-        case _Route.cityMap:
-          route = _Route.trips;
-          break;
-        default:
-          break;
-      }
-    });
-  }
-
-  Widget _renderRoute() {
+  Widget _renderRoute(AppRoute route, RouteController controller) {
     switch (route) {
-      case _Route.onboarding:
+      case AppRoute.onboarding:
         return OnboardingScreen(
-          onStart: () => setState(() => route = _Route.trips),
-          onLogin: () => setState(() => route = _Route.trips),
+          onStart: () => controller.goTo(AppRoute.trips),
+          onLogin: () => controller.goTo(AppRoute.trips),
         );
-      case _Route.trips:
+      case AppRoute.trips:
         return TripsScreen(
-          onOpen: (_) => setState(() => route = _Route.tripOverview),
+          onOpen: (_) => controller.goTo(AppRoute.tripOverview),
         );
-      case _Route.tripOverview:
+      case AppRoute.tripOverview:
         return TripOverviewScreen(
-          onBack: () => setState(() => route = _Route.trips),
-          onOpenTimeline: () => setState(() => route = _Route.tripTimeline),
-          onOpenMap: () => setState(() => route = _Route.tripMap),
-          onOpenCalendar: () => setState(() => route = _Route.tripCalendar),
-          onOpenExpenses: () => setState(() => route = _Route.expenses),
+          onBack: () => controller.goTo(AppRoute.trips),
+          onOpenTimeline: () => controller.goTo(AppRoute.tripTimeline),
+          onOpenMap: () => controller.goTo(AppRoute.tripMap),
+          onOpenCalendar: () => controller.goTo(AppRoute.tripCalendar),
+          onOpenExpenses: () => controller.goTo(AppRoute.expenses),
         );
-      case _Route.tripTimeline:
+      case AppRoute.tripTimeline:
         return TripTimelineScreen(
-          onBack: () => setState(() => route = _Route.tripOverview),
-          onSwitchMap: () => setState(() => route = _Route.tripMap),
-          onSwitchCalendar: () => setState(() => route = _Route.tripCalendar),
+          onBack: () => controller.goTo(AppRoute.tripOverview),
+          onSwitchMap: () => controller.goTo(AppRoute.tripMap),
+          onSwitchCalendar: () => controller.goTo(AppRoute.tripCalendar),
         );
-      case _Route.tripMap:
+      case AppRoute.tripMap:
         return TripMapScreen(
-          onBack: () => setState(() => route = _Route.tripOverview),
-          onSwitchTimeline: () => setState(() => route = _Route.tripTimeline),
+          onBack: () => controller.goTo(AppRoute.tripOverview),
+          onSwitchTimeline: () => controller.goTo(AppRoute.tripTimeline),
         );
-      case _Route.tripCalendar:
+      case AppRoute.tripCalendar:
         return TripCalendarScreen(
-          onBack: () => setState(() => route = _Route.tripOverview),
-          onSwitchTimeline: () => setState(() => route = _Route.tripTimeline),
-          onSwitchMap: () => setState(() => route = _Route.tripMap),
+          onBack: () => controller.goTo(AppRoute.tripOverview),
+          onSwitchTimeline: () => controller.goTo(AppRoute.tripTimeline),
+          onSwitchMap: () => controller.goTo(AppRoute.tripMap),
         );
-      case _Route.cityMap:
+      case AppRoute.cityMap:
         return CityMapScreen(
-          onBack: () => setState(() => route = _Route.trips),
+          onBack: () => controller.goTo(AppRoute.trips),
         );
-      case _Route.expenses:
+      case AppRoute.expenses:
         return ExpenseListScreen(
-          onAdd: () => setState(() => route = _Route.addExpense),
-          onSettle: () => setState(() => route = _Route.settle),
+          onAdd: () => controller.goTo(AppRoute.addExpense),
+          onSettle: () => controller.goTo(AppRoute.settle),
         );
-      case _Route.addExpense:
+      case AppRoute.addExpense:
         return AddExpenseScreen(
-          onClose: () => setState(() => route = _Route.expenses),
+          onClose: () => controller.goTo(AppRoute.expenses),
         );
-      case _Route.settle:
+      case AppRoute.settle:
         return SettleUpScreen(
-          onClose: () => setState(() => route = _Route.expenses),
+          onClose: () => controller.goTo(AppRoute.expenses),
         );
-      case _Route.discover:
+      case AppRoute.discover:
         return const DiscoverScreen();
-      case _Route.profile:
-        return ProfileScreen(onToggleTheme: widget.onToggleTheme);
+      case AppRoute.profile:
+        return const ProfileScreen();
     }
   }
 }

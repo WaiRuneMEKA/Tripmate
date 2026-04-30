@@ -1,15 +1,32 @@
 import 'package:flutter/material.dart';
 import '../data/mock.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/tokens.dart';
 import '../widgets/primitives.dart';
 
-class TripsScreen extends StatelessWidget {
+enum _TripFilter { all, live, drafts, past }
+
+class TripsScreen extends StatefulWidget {
   final void Function(String tripId)? onOpen;
   const TripsScreen({super.key, this.onOpen});
 
   @override
+  State<TripsScreen> createState() => _TripsScreenState();
+}
+
+class _TripsScreenState extends State<TripsScreen> {
+  _TripFilter _filter = _TripFilter.all;
+
+  @override
   Widget build(BuildContext context) {
     final p = TmPalette.of(context);
+    final l = AppLocalizations.of(context)!;
+    final visible = trips.where((t) => switch (_filter) {
+          _TripFilter.all => true,
+          _TripFilter.live => t.live,
+          _TripFilter.drafts => t.draft,
+          _TripFilter.past => !t.live && !t.draft,
+        }).toList();
     return SafeArea(
       bottom: false,
       child: ListView(
@@ -18,7 +35,7 @@ class TripsScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              'Trips',
+              l.tripsTitle,
               style: TmType.display(color: p.fg).copyWith(
                 fontSize: 28,
                 height: 34 / 28,
@@ -31,22 +48,49 @@ class TripsScreen extends StatelessWidget {
             height: 36,
             child: ListView(
               scrollDirection: Axis.horizontal,
-              children: const [
-                TmChip(active: true, child: Text('All')),
-                SizedBox(width: 8),
-                TmChip(child: Text('Live')),
-                SizedBox(width: 8),
-                TmChip(child: Text('Drafts')),
-                SizedBox(width: 8),
-                TmChip(child: Text('Past')),
+              children: [
+                TmChip(
+                  active: _filter == _TripFilter.all,
+                  onPressed: () => setState(() => _filter = _TripFilter.all),
+                  child: Text(l.filterAll),
+                ),
+                const SizedBox(width: 8),
+                TmChip(
+                  active: _filter == _TripFilter.live,
+                  onPressed: () => setState(() => _filter = _TripFilter.live),
+                  child: Text(l.filterLive),
+                ),
+                const SizedBox(width: 8),
+                TmChip(
+                  active: _filter == _TripFilter.drafts,
+                  onPressed: () => setState(() => _filter = _TripFilter.drafts),
+                  child: Text(l.filterDrafts),
+                ),
+                const SizedBox(width: 8),
+                TmChip(
+                  active: _filter == _TripFilter.past,
+                  onPressed: () => setState(() => _filter = _TripFilter.past),
+                  child: Text(l.filterPast),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 14),
-          for (final t in trips) ...[
-            _TripCard(trip: t, onTap: () => onOpen?.call(t.id)),
-            const SizedBox(height: 14),
-          ],
+          if (visible.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  l.tripsEmpty,
+                  style: TmType.body(color: p.muted),
+                ),
+              ),
+            )
+          else
+            for (final t in visible) ...[
+              _TripCard(trip: t, onTap: () => widget.onOpen?.call(t.id)),
+              const SizedBox(height: 14),
+            ],
           _NewTripButton(),
         ],
       ),
@@ -215,6 +259,7 @@ class _NewTripButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = TmPalette.of(context);
+    final l = AppLocalizations.of(context)!;
     return InkWell(
       onTap: () {},
       borderRadius: BorderRadius.circular(12),
@@ -231,7 +276,7 @@ class _NewTripButton extends StatelessWidget {
             Icon(Icons.add, size: 16, color: p.muted),
             const SizedBox(width: 8),
             Text(
-              'Start a new trip',
+              l.startNewTrip,
               style: TmType.body(color: p.muted, weight: FontWeight.w500).copyWith(fontSize: 14),
             ),
           ],

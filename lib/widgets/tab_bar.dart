@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../theme/tokens.dart';
 
 enum TmTab { trips, map, expenses, discover, profile }
@@ -11,12 +12,13 @@ class TmTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = TmPalette.of(context);
-    final tabs = const [
-      (TmTab.trips, 'Trips', Icons.menu_outlined),
-      (TmTab.map, 'Map', Icons.map_outlined),
-      (TmTab.expenses, 'Expenses', Icons.account_balance_wallet_outlined),
-      (TmTab.discover, 'Discover', Icons.search_outlined),
-      (TmTab.profile, 'Profile', Icons.person_outline),
+    final l = AppLocalizations.of(context)!;
+    final tabs = [
+      (TmTab.trips, l.tabTrips, Icons.menu_outlined),
+      (TmTab.map, l.tabMap, Icons.map_outlined),
+      (TmTab.expenses, l.tabExpenses, Icons.account_balance_wallet_outlined),
+      (TmTab.discover, l.tabDiscover, Icons.search_outlined),
+      (TmTab.profile, l.tabProfile, Icons.person_outline),
     ];
     return Container(
       decoration: BoxDecoration(
