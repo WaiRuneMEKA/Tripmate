@@ -14,6 +14,11 @@ enum AppRoute {
   settle,
   discover,
   profile,
+  createTrip,
+  editProfile,
+  notifications,
+  privacy,
+  helpCenter,
 }
 
 final routeProvider = NotifierProvider<RouteController, AppRoute>(
@@ -50,7 +55,13 @@ class RouteController extends Notifier<AppRoute> {
       TmTab.expenses,
     AppRoute.discover => TmTab.discover,
     AppRoute.profile => TmTab.profile,
+    AppRoute.createTrip => TmTab.trips,
     AppRoute.onboarding => TmTab.trips,
+    AppRoute.editProfile ||
+    AppRoute.notifications ||
+    AppRoute.privacy ||
+    AppRoute.helpCenter =>
+      TmTab.profile,
   };
 
   bool get canGoBack => switch (state) {
@@ -60,7 +71,12 @@ class RouteController extends Notifier<AppRoute> {
     AppRoute.tripCalendar ||
     AppRoute.addExpense ||
     AppRoute.settle ||
-    AppRoute.cityMap =>
+    AppRoute.cityMap ||
+    AppRoute.createTrip ||
+    AppRoute.editProfile ||
+    AppRoute.notifications ||
+    AppRoute.privacy ||
+    AppRoute.helpCenter =>
       true,
     _ => false,
   };
@@ -74,6 +90,12 @@ class RouteController extends Notifier<AppRoute> {
         AppRoute.tripOverview,
       AppRoute.addExpense || AppRoute.settle => AppRoute.expenses,
       AppRoute.cityMap => AppRoute.trips,
+      AppRoute.createTrip => AppRoute.trips,
+      AppRoute.editProfile ||
+      AppRoute.notifications ||
+      AppRoute.privacy ||
+      AppRoute.helpCenter =>
+        AppRoute.profile,
       _ => state,
     };
   }
@@ -83,7 +105,12 @@ class RouteController extends Notifier<AppRoute> {
     AppRoute.addExpense ||
     AppRoute.settle ||
     AppRoute.tripMap ||
-    AppRoute.cityMap =>
+    AppRoute.cityMap ||
+    AppRoute.createTrip ||
+    AppRoute.editProfile ||
+    AppRoute.notifications ||
+    AppRoute.privacy ||
+    AppRoute.helpCenter =>
       false,
     _ => true,
   };

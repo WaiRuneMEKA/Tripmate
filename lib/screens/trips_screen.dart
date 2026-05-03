@@ -1,26 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/mock.dart';
 import '../l10n/app_localizations.dart';
+import '../providers/trips_provider.dart';
 import '../theme/tokens.dart';
 import '../widgets/primitives.dart';
 
 enum _TripFilter { all, live, drafts, past }
 
-class TripsScreen extends StatefulWidget {
+class TripsScreen extends ConsumerStatefulWidget {
   final void Function(String tripId)? onOpen;
-  const TripsScreen({super.key, this.onOpen});
+  final VoidCallback? onCreateNew;
+  const TripsScreen({super.key, this.onOpen, this.onCreateNew});
 
   @override
-  State<TripsScreen> createState() => _TripsScreenState();
+  ConsumerState<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen> {
+class _TripsScreenState extends ConsumerState<TripsScreen> {
   _TripFilter _filter = _TripFilter.all;
 
   @override
   Widget build(BuildContext context) {
     final p = TmPalette.of(context);
     final l = AppLocalizations.of(context)!;
+    final trips = ref.watch(tripsProvider);
     final visible = trips.where((t) => switch (_filter) {
           _TripFilter.all => true,
           _TripFilter.live => t.live,
@@ -91,7 +95,7 @@ class _TripsScreenState extends State<TripsScreen> {
               _TripCard(trip: t, onTap: () => widget.onOpen?.call(t.id)),
               const SizedBox(height: 14),
             ],
-          _NewTripButton(),
+          _NewTripButton(onTap: widget.onCreateNew),
         ],
       ),
     );
@@ -256,12 +260,15 @@ class _Stat extends StatelessWidget {
 }
 
 class _NewTripButton extends StatelessWidget {
+  final VoidCallback? onTap;
+  const _NewTripButton({this.onTap});
+
   @override
   Widget build(BuildContext context) {
     final p = TmPalette.of(context);
     final l = AppLocalizations.of(context)!;
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         height: 52,

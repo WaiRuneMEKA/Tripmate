@@ -21,6 +21,11 @@ import 'screens/add_expense_screen.dart';
 import 'screens/settle_up_screen.dart';
 import 'screens/discover_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/edit_profile_screen.dart';
+import 'screens/edit_notifications_screen.dart';
+import 'screens/edit_privacy_screen.dart';
+import 'screens/help_center_screen.dart';
+import 'screens/create_trip_screen.dart';
 
 void main() {
   runApp(const ProviderScope(child: TripmateApp()));
@@ -114,6 +119,7 @@ class AppShell extends ConsumerWidget {
       case AppRoute.trips:
         return TripsScreen(
           onOpen: (_) => controller.goTo(AppRoute.tripOverview),
+          onCreateNew: () => controller.goTo(AppRoute.createTrip),
         );
       case AppRoute.tripOverview:
         return TripOverviewScreen(
@@ -161,6 +167,18 @@ class AppShell extends ConsumerWidget {
         return const DiscoverScreen();
       case AppRoute.profile:
         return const ProfileScreen();
+      case AppRoute.createTrip:
+        return CreateTripScreen(
+          onClose: () => controller.goBack(),
+        );
+      case AppRoute.editProfile:
+        return EditProfileScreen(onBack: () => controller.goTo(AppRoute.profile));
+      case AppRoute.notifications:
+        return NotificationsScreen(onBack: () => controller.goTo(AppRoute.profile));
+      case AppRoute.privacy:
+        return PrivacyScreen(onBack: () => controller.goTo(AppRoute.profile));
+      case AppRoute.helpCenter:
+        return HelpCenterScreen(onBack: () => controller.goTo(AppRoute.profile));
     }
   }
 }

@@ -1,7 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import '../data/mock.dart';
 import '../theme/tokens.dart';
-import '../widgets/muted_map.dart';
 import '../widgets/primitives.dart';
 
 class TripMapScreen extends StatefulWidget {
@@ -15,6 +18,22 @@ class TripMapScreen extends StatefulWidget {
 
 class _TripMapScreenState extends State<TripMapScreen> {
   int active = 3;
+  final _mapController = MapController();
+
+  // Coordinates for tripPins (all in Lisbon area, matching Day 4 itinerary)
+  static const _latLngs = [
+    LatLng(38.7086, -9.1465), // Selina Secret Garden (Bairro Alto)
+    LatLng(38.7372, -9.1693), // Bus stop - Sete Rios
+    LatLng(38.7108, -9.1368), // Cafe Santa Cruz
+    LatLng(38.7196, -9.1540), // Universidade de Coimbra area
+    LatLng(38.7003, -9.1791), // Mondego river walk (LX Factory area)
+    LatLng(38.7091, -9.1417), // Solar Bar do Quim
+  ];
+
+  void _selectPin(int index) {
+    setState(() => active = index);
+    _mapController.move(_latLngs[index], 14.5);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,91 +52,177 @@ class _TripMapScreenState extends State<TripMapScreen> {
           ),
         ),
         Expanded(
-          child: LayoutBuilder(
-            builder: (context, c) {
-              return Stack(
+          child: Stack(
+            children: [
+              FlutterMap(
+                mapController: _mapController,
+                options: MapOptions(
+                  initialCenter: _latLngs[active],
+                  initialZoom: 13.5,
+                  minZoom: 10.0,
+                  maxZoom: 18.0,
+                ),
                 children: [
-                  MutedMap(
-                    width: c.maxWidth,
-                    height: c.maxHeight,
-                    overlays: [
-                      // route polyline (dashed)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            painter: _RoutePainter(color: p.accent, scaleW: c.maxWidth, scaleH: c.maxHeight),
-                          ),
-                        ),
+                  TileLayer(
+                    urlTemplate: p.dark
+                        ? 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                        : 'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.example.tripmate',
+                  ),
+                  PolylineLayer(
+                    polylines: [
+                      Polyline(
+                        points: _latLngs.toList(),
+                        strokeWidth: 3.5,
+                        color: p.accent.withValues(alpha: 0.85),
+                        pattern: const StrokePattern.dotted(),
                       ),
-                      for (var i = 0; i < tripPins.length; i++)
-                        MapPin(
-                          cat: tripPins[i].cat,
-                          position: Offset(tripPins[i].xFrac * c.maxWidth, tripPins[i].yFrac * c.maxHeight),
-                          label: i == active ? tripPins[i].name : null,
-                          active: i == active,
-                          onTap: () => setState(() => active = i),
-                        ),
                     ],
                   ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: _BottomSheet(
-                      cat: pin.cat,
-                      name: pin.name,
-                      meta: '${def.label} · 14:00 · €13.50 · 0.4 km',
-                    ),
+                  MarkerLayer(
+                    markers: [
+                      for (var i = 0; i < tripPins.length; i++)
+                        _buildMarker(i, p),
+                    ],
+                  ),
+                  RichAttributionWidget(
+                    attributions: [
+                      TextSourceAttribution('OpenStreetMap', onTap: () {}),
+                      TextSourceAttribution('Carto', onTap: () {}),
+                    ],
                   ),
                 ],
-              );
-            },
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: _BottomSheet(
+                  cat: pin.cat,
+                  name: pin.name,
+                  meta: '${def.label} · 14:00 · €13.50 · 0.4 km',
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
+
+  Marker _buildMarker(int index, TmPalette p) {
+    final isActive = index == active;
+    final tp = tripPins[index];
+    return Marker(
+      width: isActive ? 110.0 : 44.0,
+      height: isActive ? 88.0 : 52.0,
+      point: _latLngs[index],
+      alignment: Alignment.bottomCenter,
+      child: _TmPin(
+        cat: tp.cat,
+        active: isActive,
+        label: isActive ? tp.name : null,
+        onTap: () => _selectPin(index),
+      ),
+    );
+  }
 }
 
-class _RoutePainter extends CustomPainter {
+// ── Pin widget for flutter_map ───────────────────────────────────────────────
+
+class _TmPin extends StatelessWidget {
+  final TmCategory cat;
+  final bool active;
+  final String? label;
+  final VoidCallback? onTap;
+  const _TmPin({required this.cat, this.active = false, this.label, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = TmPalette.of(context);
+    final def = tmCategories[cat]!;
+    final size = active ? 36.0 : 28.0;
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (active && label != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: TmColors.nearBlack,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                label!,
+                style: TmType.caption(color: Colors.white).copyWith(fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 3),
+          ],
+          CustomPaint(
+            size: Size(size, size + 8),
+            painter: _PinPainter(color: def.color(p.dark), active: active),
+            child: SizedBox(
+              width: size,
+              height: size + 8,
+              child: Padding(
+                padding: EdgeInsets.only(top: size * 0.18),
+                child: Center(
+                  child: Icon(def.icon, size: size * 0.42, color: Colors.white),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PinPainter extends CustomPainter {
   final Color color;
-  final double scaleW;
-  final double scaleH;
-  _RoutePainter({required this.color, required this.scaleW, required this.scaleH});
+  final bool active;
+  _PinPainter({required this.color, required this.active});
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Approx scale from 390×552 reference
-    final w = size.width / 390;
-    final h = size.height / 552;
-    final path = Path()
-      ..moveTo(86 * w, 177 * h)
-      ..quadraticBezierTo(130 * w, 240 * h, 148 * w, 276 * h)
-      ..quadraticBezierTo(200 * w, 320 * h, 226 * w, 265 * h)
-      ..quadraticBezierTo(250 * w, 230 * h, 250 * w, 199 * h)
-      ..quadraticBezierTo(230 * w, 320 * h, 203 * w, 375 * h)
-      ..quadraticBezierTo(240 * w, 400 * h, 273 * w, 408 * h);
-    final dashPaint = Paint()
-      ..color = color
-      ..strokeWidth = 2.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    // Draw dashed
-    final metrics = path.computeMetrics();
-    for (final m in metrics) {
-      double dist = 0;
-      while (dist < m.length) {
-        final next = (dist + 5).clamp(0, m.length).toDouble();
-        canvas.drawPath(m.extractPath(dist, next), dashPaint);
-        dist = next + 4;
-      }
-    }
+    final w = size.width;
+    final scale = w / 36.0;
+    final path = ui.Path()
+      ..moveTo(18 * scale, 2 * scale)
+      ..cubicTo(9 * scale, 2 * scale, 4 * scale, 9 * scale, 4 * scale, 17 * scale)
+      ..cubicTo(4 * scale, 27 * scale, 18 * scale, 42 * scale, 18 * scale, 42 * scale)
+      ..cubicTo(18 * scale, 42 * scale, 32 * scale, 27 * scale, 32 * scale, 17 * scale)
+      ..cubicTo(32 * scale, 9 * scale, 27 * scale, 2 * scale, 18 * scale, 2 * scale)
+      ..close();
+    canvas.drawShadow(path, Colors.black.withValues(alpha: active ? 0.25 : 0.18), 4, true);
+    canvas.drawPath(path, Paint()..color = color);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
   }
 
   @override
-  bool shouldRepaint(_RoutePainter old) =>
-      old.color != color || old.scaleW != scaleW || old.scaleH != scaleH;
+  bool shouldRepaint(_PinPainter old) => old.color != color || old.active != active;
 }
+
+// ── Bottom sheet (same design as before) ────────────────────────────────────
 
 class _BottomSheet extends StatelessWidget {
   final TmCategory cat;
